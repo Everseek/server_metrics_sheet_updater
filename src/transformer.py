@@ -43,12 +43,18 @@ class FirestoreToFramesTransformer:
         :rtype: Any
         """
         if isinstance(value, (int, float)):
-            parsed = pd.to_datetime(value, errors="coerce", unit="s", utc=True)
+            parsed = pd.to_datetime(
+                value,
+                errors="coerce",
+                unit="s",
+                utc=True
+            )
             if pd.isna(parsed):
                 return value
+            
             local = parsed.tz_convert(self._chile_tz)
+            
             return local.tz_localize(None)
-
         parsed = pd.to_datetime(value, errors="coerce", utc=True)
         if pd.isna(parsed):
             return value
@@ -56,7 +62,10 @@ class FirestoreToFramesTransformer:
         local = parsed.tz_convert(self._chile_tz)
         return local.tz_localize(None)
 
-    def _normalize_timestamp_fields(self, row: Dict[str, Any]) -> Dict[str, Any]:
+    def _normalize_timestamp_fields(
+        self,
+        row: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """
         Normaliza keys que contienen "timestamp".
 

@@ -30,10 +30,14 @@ class FirestoreClient:
         :raises FileNotFoundError: Si no existe el JSON.
         """
         if not self._credentials_path.exists():
-            raise FileNotFoundError(f"No existe: {self._credentials_path}")
+            raise FileNotFoundError(
+                f"No existe: {self._credentials_path}"
+            )
 
         if not firebase_admin._apps:
-            cred = credentials.Certificate(str(self._credentials_path))
+            cred = credentials.Certificate(
+                str(self._credentials_path)
+            )
             firebase_admin.initialize_app(cred)
 
         self._client = firestore.client()

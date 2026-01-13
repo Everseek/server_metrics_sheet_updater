@@ -3,11 +3,11 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, List, Mapping, Tuple
 
-from raptor_export.config import load_settings
-from raptor_export.firestore_client import FirestoreClient
-from raptor_export.logging_utils import configure_logging
-from raptor_export.sheets_client import GoogleSheetsClient
-from raptor_export.transformer import FirestoreToFramesTransformer
+from src.config import load_settings
+from src.firestore_client import FirestoreClient
+from src.logging_utils import configure_logging
+from src.sheets_client import GoogleSheetsClient
+from src.transformer import FirestoreToFramesTransformer
 
 
 def _collect_documents(
@@ -54,7 +54,7 @@ def _collect_documents(
 
 def run() -> None:
     """
-    Orquesta: Firestore -> DataFrames -> Google Sheets.
+    Orquestador, logica principal.
 
     :return: None
     :rtype: None
@@ -63,10 +63,15 @@ def run() -> None:
         settings = load_settings()
         logger = configure_logging(settings.log_level)
 
-        firestore_client = FirestoreClient(settings.firebase_credentials_path)
+        firestore_client = (
+            FirestoreClient(settings.firebase_credentials_path)
+        )
         firestore_client.connect()
 
-        logger.info("Conectado a Firestore (solo lectura). Descargando docs...")
+        logger.info(
+            "Conectado a Firestore, descargando documentos..."
+        )
+
         documents = _collect_documents(
             client=firestore_client,
             collection_name=settings.firestore_collection_name,
@@ -84,7 +89,9 @@ def run() -> None:
         )
 
         if frames.servers.empty:
-            logger.warning("df_servers vacío: no se actualiza pestaña servers.")
+            logger.warning(
+                "df_servers vacío: no se actualiza pestaña servers."
+            )
         else:
             logger.info(
                 "Actualizando pestaña %s (servers)...",
@@ -101,7 +108,9 @@ def run() -> None:
             )
 
         if frames.cameras.empty:
-            logger.warning("df_cameras vacío: no se actualiza pestaña cameras.")
+            logger.warning(
+                "df_cameras vacío: no se actualiza pestaña cameras."
+            )
         else:
             logger.info(
                 "Actualizando pestaña %s (cameras)...",
@@ -118,7 +127,6 @@ def run() -> None:
             )
 
         logger.info("Sync completada OK.")
-
     except (FileNotFoundError, ValueError) as exc:
         logger = configure_logging(logging.ERROR)
         logger.error("%s", exc)

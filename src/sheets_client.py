@@ -17,9 +17,14 @@ class GoogleSheetsClient:
     :type sheet_id: str
     """
 
-    def __init__(self, credentials_path: Path, sheet_id: str) -> None:
+    def __init__(
+        self,
+        credentials_path: Path,
+        sheet_id: str
+    ) -> None:
         self._credentials_path = credentials_path
         self._sheet_id = sheet_id
+
 
     def _open_sheet(self) -> gspread.Spreadsheet:
         """
@@ -30,10 +35,15 @@ class GoogleSheetsClient:
         :raises FileNotFoundError: Si no existe JSON.
         """
         if not self._credentials_path.exists():
-            raise FileNotFoundError(f"No existe: {self._credentials_path}")
+            raise FileNotFoundError(
+                f"No existe: {self._credentials_path}"
+            )
 
-        gc = gspread.service_account(filename=str(self._credentials_path))
+        gc = gspread.service_account(
+            filename=str(self._credentials_path)
+        )
         return gc.open_by_key(self._sheet_id)
+
 
     @staticmethod
     def _open_or_create_worksheet(
@@ -59,7 +69,12 @@ class GoogleSheetsClient:
         try:
             return sheet.worksheet(title)
         except gspread.WorksheetNotFound:
-            return sheet.add_worksheet(title=title, rows=rows, cols=cols)
+            return sheet.add_worksheet(
+                title=title,
+                rows=rows,
+                cols=cols
+            )
+
 
     def replace_dataframe(
         self,
