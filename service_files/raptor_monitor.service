@@ -1,0 +1,30 @@
+[Unit]
+Description=Raptor Monitoring: Firestore to Google Sheets sync
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+
+User=everseek
+Group=everseek
+
+WorkingDirectory=/opt/raptor-monitor-sync
+
+Environment="PYTHONUNBUFFERED=1"
+Environment="TZ=America/Santiago"
+
+ExecStart=/opt/raptor-monitor-sync/.venv/bin/python /opt/raptor-monitor-sync/sync.py
+
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=6
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/raptor-monitor-sync
+
+StandardOutput=journal
+StandardError=journal
