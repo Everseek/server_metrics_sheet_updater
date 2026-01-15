@@ -3,7 +3,7 @@ settings:
   log_level: "INFO"
 
 sheets:
-  # --- Configuración de Hoja Servidores ---
+  # region Hoja Servidores
   servers:
     tab_name: "servidores"
     history_tab: "historial_servidores"
@@ -79,7 +79,7 @@ sheets:
         name: "Cámaras activas"
         format: "NUMBER"
 
-  # --- Configuración de Hoja Cámaras ---
+  # region Hoja Cámaras
   cameras:
     tab_name: "camaras"
     history_tab: "historial_camaras"

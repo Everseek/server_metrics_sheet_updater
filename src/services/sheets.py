@@ -5,7 +5,7 @@ from gspread.utils import rowcol_to_a1
 from src.config import config
 
 class SheetsService:
-    # --- 1. Definición de Formatos de Datos ---
+    # Formatos de Datos
     FORMATS = {
         "NUMBER": {"numberFormat": {"type": "NUMBER", "pattern": "0.0"}},
         "PERCENT": {"numberFormat": {"type": "PERCENT", "pattern": "0.0%"}},
@@ -13,9 +13,9 @@ class SheetsService:
         "TEXT": {"numberFormat": {"type": "TEXT"}},
     }
 
-    # --- 2. Definición de Estilos Visuales ---
+    # Estilos Visuales
     STYLES = {
-        # Azul Google: Fondo Azul, Letra Blanca
+        # Azul de Google: Fondo Azul, Letra Blanca
         "HEADER_BLUE": {
             "backgroundColor": {"red": 0.258, "green": 0.52, "blue": 0.956},
             "textFormat": {"foregroundColor": {"red": 1, "green": 1, "blue": 1}, "bold": True, "fontSize": 10},
@@ -28,7 +28,7 @@ class SheetsService:
             "verticalAlignment": "MIDDLE",
             "horizontalAlignment": "CENTER"
         },
-        # BASE: Bordes negros Y LETRA NEGRA (Esto arregla el texto invisible)
+        # BASE: Bordes negros y letra negra
         "TABLE_BASE": {
             "borders": {
                 "top": {"style": "SOLID"},
@@ -40,18 +40,24 @@ class SheetsService:
         }
     }
 
-    def __init__(self):
+    def __init__(self) -> None:
         gc = gspread.service_account(filename=config.creds_sheets)
         self.sh = gc.open_by_key(config.sheet_id)
 
-    def update_snapshot(self, tab_config: dict, df: pd.DataFrame, time_chile, time_utc):
+    def update_snapshot(
+        self,
+        tab_config: dict,
+        df: pd.DataFrame,
+        time_chile,
+        time_utc
+    ) -> None:
         if df.empty: return
         
         tab_name = tab_config["tab_name"]
         ws = self._get_or_create_worksheet(tab_name)
         ws.clear()
 
-        # A. Metadatos (Filas 1-3)
+        # Metadatos (Filas 1-3)
         header_data = [
             ["Título", tab_config.get("title", "Reporte")],
             ["Última actualización (Chile)", str(time_chile)],
@@ -59,43 +65,113 @@ class SheetsService:
         ]
         ws.update("A1:B3", header_data)
         ws.format("A1:A3", self.STYLES["HEADER_BLUE"])
-        ws.format("B1:B3", self.STYLES["TABLE_BASE"]) # Aplicamos borde y texto negro
+        ws.format("B1:B3", self.STYLES["TABLE_BASE"])
 
-        # B. Datos (Fila 6)
+        # Datos (Fila 6)
         start_row = 6
-        set_with_dataframe(ws, df, row=start_row, resize=True)
+        set_with_dataframe(
+            ws,
+            df,
+            row=start_row,
+            resize=True
+        )
 
-        # C. Formatos de Datos
-        self._apply_data_formats(ws, df, tab_config["columns"], start_row)
+        # Formatos de Datos
+        self._apply_data_formats(
+            ws,
+            df,
+            tab_config["columns"],
+            start_row
+        )
 
-        # D. Estilos Visuales (Aquí arreglamos los colores)
-        self._apply_visual_styles(ws, df, tab_config, start_row)
+        # Estilos Visuales
+        self._apply_visual_styles(
+            ws,
+            df,
+            tab_config,
+            start_row
+        )
 
-        # E. Merge
+        # Merge
         if "merge_column" in tab_config:
-            self._merge_cells(ws, df, tab_config["columns"][tab_config["merge_column"]]["name"], start_row)
-
+            self._merge_cells(
+                ws,
+                df,
+                tab_config["columns"][tab_config["merge_column"]]["name"],
+                start_row
+            )
     def append_history(self, tab_config: dict, df: pd.DataFrame, time_chile):
-        if df.empty: return
-        hist_tab_name = tab_config.get("history_tab")
-        if not hist_tab_name: return
+            """Agrega filas al final de la hoja de historial."""
+            if df.empty: return
+            
+            hist_tab_name = tab_config.get("history_tab")
+            if not hist_tab_name: return
 
-        df_history = df.copy()
-        df_history.insert(0, "Fecha Extracción", time_chile)
+            # Preparar DataFrame para Historial
+            df_history = df.copy()
+            # Insertamos la fecha al inicio
+            df_history.insert(0, "Fecha Extracción", time_chile)
 
-        ws = self._get_or_create_worksheet(hist_tab_name)
+            ws = self._get_or_create_worksheet(hist_tab_name)
+            
+            # Verificar si necesitamos escribir cabeceras
+            # Chequeamos SOLO la celda A1. Si está vacía, asumimos que es hoja nueva.
+            # Esto es más rápido y seguro que leer toda la hoja.
+            check_header = ws.get_values("A1") 
+            needs_header = not check_header or not check_header[0]
+
+            if needs_header:
+                # CASO A: No hay cabecera -> Escribimos CON TÍTULOS
+                set_with_dataframe(
+                    ws, 
+                    df_history, 
+                    row=1, 
+                    include_column_header=True, 
+                    resize=True
+                )
+                # Y le ponemos el estilo Azul al encabezado (Fila 1)
+                ws.format("1:1", self.STYLES["HEADER_BLUE"])
+            else:
+                # CASO B: Ya tiene cabecera -> Agregamos filas al final (SIN TÍTULOS)
+                payload = df_history.astype(str).values.tolist()
+                ws.append_rows(payload)
+
+    # def append_history(
+    #     self,
+    #     tab_config: dict,
+    #     df: pd.DataFrame,
+    #     time_chile
+    # ) -> None:
+    #     if df.empty: return
+    #     hist_tab_name = tab_config.get("history_tab")
+    #     if not hist_tab_name: return
+
+    #     df_history = df.copy()
+    #     df_history.insert(0, "Fecha Extracción", time_chile)
+
+    #     ws = self._get_or_create_worksheet(hist_tab_name)
         
-        if len(ws.get_all_values()) == 0:
-            set_with_dataframe(ws, df_history, row=1)
-        else:
-            payload = df_history.astype(str).values.tolist()
-            ws.append_rows(payload)
+    #     if len(ws.get_all_values()) == 0:
+    #         set_with_dataframe(ws, df_history, row=1)
+    #     else:
+    #         payload = df_history.astype(str).values.tolist()
+    #         ws.append_rows(payload)
 
     def _get_or_create_worksheet(self, name):
         try: return self.sh.worksheet(name)
-        except: return self.sh.add_worksheet(name, rows=100, cols=20)
+        except: return self.sh.add_worksheet(
+            name,
+            rows=100,
+            cols=20
+        )
 
-    def _apply_data_formats(self, ws, df, columns_config, start_row_idx):
+    def _apply_data_formats(
+        self,
+        ws,
+        df,
+        columns_config,
+        start_row_idx
+    ) -> None:
         batch = []
         final_name_map = {v["name"]: v for k, v in columns_config.items()}
 
@@ -112,28 +188,34 @@ class SheetsService:
                     })
         if batch: ws.batch_format(batch)
 
-    def _apply_visual_styles(self, ws, df, tab_config, start_row_idx):
+    def _apply_visual_styles(
+        self,
+        ws,
+        df,
+        tab_config,
+        start_row_idx
+    ) -> None:
         batch_styles = []
         
         last_col_idx = len(df.columns)
         last_row_idx = start_row_idx + len(df)
         last_col_letter = rowcol_to_a1(1, last_col_idx).replace("1", "")
         
-        # 1. BASE: A todo el rango le ponemos bordes Y LETRA NEGRA
+        # A todo el rango le pone bordes y letra negra
         full_table_range = f"A{start_row_idx}:{last_col_letter}{last_row_idx}"
         batch_styles.append({
             "range": full_table_range,
             "format": self.STYLES["TABLE_BASE"]
         })
 
-        # 2. HEADER: A la primera fila le ponemos AZUL Y LETRA BLANCA (sobrescribe lo anterior)
+        # A la primera fila le pone azul y letra blanca
         header_range = f"A{start_row_idx}:{last_col_letter}{start_row_idx}"
         batch_styles.append({
             "range": header_range,
             "format": self.STYLES["HEADER_BLUE"]
         })
 
-        # 3. COLUMNA AMARILLA (Merge)
+        # Columna amarilla (la del merge)
         if "merge_column" in tab_config:
             target_col_name = tab_config["columns"][tab_config["merge_column"]]["name"]
             

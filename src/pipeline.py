@@ -13,17 +13,17 @@ def run_pipeline():
     logger.info(">>> Iniciando Pipeline ETL")
 
     try:
-        # 0. Definir TimeStamps del Proceso
-        # Usamos la zona horaria definida en config
+        # TimeStamps
+        # Usa zona horaria definida en config
         tz_chile = pytz.timezone(config.timezone)
         now_utc = datetime.now(pytz.utc)
         now_chile = now_utc.astimezone(tz_chile)
 
-        # Formatos string para el header
+        # Formatos string pal header
         str_chile = now_chile.strftime("%Y-%m-%d %H:%M:%S")
         str_utc = now_utc.strftime("%Y-%m-%d %H:%M:%S UTC")
 
-        # 1. Extracción
+        # Extracción de los datazos
         logger.info("Conectando a Firestore...")
         firestore = FirestoreService()
         raw_docs = list(firestore.get_documents())
@@ -32,27 +32,27 @@ def run_pipeline():
             logger.warning("No hay datos. Finalizando.")
             return
 
-        # 2. Transformación
+        # Transformación de los datitos
         logger.info("Transformando datos...")
         transformer = DataTransformer()
         datasets = transformer.process_data(raw_docs)
 
-        # 3. Carga (Snapshot + Historial)
+        # Carga a google shit
         logger.info("Conectando a Google Sheets...")
         sheets = SheetsService()
 
-        # --- SERVIDORES ---
+        # region SERVIDORES
         logger.info("Procesando Servidores...")
-        # A. Actualizar hoja principal (Snapshot con Header)
+        # Actualiza hoja principal
         sheets.update_snapshot(config.servers_config, datasets["servers"], str_chile, str_utc)
-        # B. Guardar en Historial
+        # Guarda en Historial
         sheets.append_history(config.servers_config, datasets["servers"], str_chile)
 
-        # --- CÁMARAS ---
+        # region CÁMARAS
         logger.info("Procesando Cámaras...")
-        # A. Actualizar hoja principal (Snapshot con Header)
+        # Actualizaa hoja principal
         sheets.update_snapshot(config.cameras_config, datasets["cameras"], str_chile, str_utc)
-        # B. Guardar en Historial
+        # Guarda en Historial
         sheets.append_history(config.cameras_config, datasets["cameras"], str_chile)
 
         logger.info("<<< Pipeline finalizado con éxito.")

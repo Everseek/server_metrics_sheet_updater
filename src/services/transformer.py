@@ -6,39 +6,58 @@ class DataTransformer:
     def __init__(self):
         self.tz = config.timezone
 
-    def process_data(self, raw_docs: List[tuple]) -> Dict[str, pd.DataFrame]:
-        """Coordina la transformación de Servidores y Cámaras."""
+    def process_data(
+        self,
+        raw_docs: List[tuple]
+    ) -> Dict[str, pd.DataFrame]:
+        """
+        Coordina la transformación de Servidores y Cámaras.
+        """
         servers_rows = []
         cameras_rows = []
 
         for doc_id, data in raw_docs:
-            # 1. Procesar Servidor
+            # Procesa Servidor
             server_row = self._flatten_server(doc_id, data)
             servers_rows.append(server_row)
 
-            # 2. Procesar Cámaras
+            # Procesa Cámaras
             if "cameras_status" in data and isinstance(data["cameras_status"], dict):
                 for cam_name, cam_data in data["cameras_status"].items():
                     if isinstance(cam_data, dict):
-                        cam_row = self._flatten_camera(doc_id, cam_name, cam_data)
+                        cam_row = self._flatten_camera(
+                            doc_id,
+                            cam_name,
+                            cam_data
+                        )
                         cameras_rows.append(cam_row)
 
-        # Crear DataFrames
+        # Crea los DataFrames
         df_servers = pd.DataFrame(servers_rows)
         df_cameras = pd.DataFrame(cameras_rows)
 
-        # Aplicar Renombrado según YAML
-        df_servers = self._rename_and_filter(df_servers, config.servers_config["columns"])
-        df_cameras = self._rename_and_filter(df_cameras, config.cameras_config["columns"])
+        # Aplica Renombrado según el YAML
+        df_servers = self._rename_and_filter(
+            df_servers,
+            config.servers_config["columns"]
+        )
+        df_cameras = self._rename_and_filter(
+            df_cameras,
+            config.cameras_config["columns"]
+        )
 
         return {"servers": df_servers, "cameras": df_cameras}
 
-    def _flatten_server(self, doc_id: str, data: dict) -> dict:
+    def _flatten_server(
+        self,
+        doc_id: str,
+        data: dict
+    ) -> dict:
         """Aplana la estructura anidada de Firestore."""
         row = {"Server Name": doc_id}
         for k, v in data.items():
             if k == "cameras_status": continue
-            # Aplanar server_stats
+            # Aplana server_stats
             if k == "server_stats" and isinstance(v, dict):
                 for sk, sv in v.items():
                     row[f"server_stats_{sk}"] = sv
@@ -46,19 +65,36 @@ class DataTransformer:
                 row[k] = v
         return self._fix_timestamps(row)
 
-    def _flatten_camera(self, server_id: str, cam_name: str, data: dict) -> dict:
-        row = {"Server Name": server_id, "camera_name": cam_name}
+    def _flatten_camera(
+        self,
+        server_id: str,
+        cam_name: str,
+        data: dict
+    ) -> dict:
+        row = {
+            "Server Name": server_id,
+            "camera_name": cam_name
+        }
         row.update(data)
         return self._fix_timestamps(row)
 
-    def _fix_timestamps(self, row: dict) -> dict:
-        """Busca campos timestamp, los convierte a datetime y ajusta la zona horaria."""
+    def _fix_timestamps(
+        self,
+        row: dict
+    ) -> dict:
+        """
+        Busca campos timestamp, los convierte a datetime y ajusta la
+        zona horaria.
+        """
         new_row = row.copy()
         for k, v in row.items():
-            # Lógica simple: si parece timestamp numérico, conviértelo
             if "timestamp" in k.lower() or "utc" in k.lower():
                 try:
-                    dt = pd.to_datetime(v, unit='s' if isinstance(v, (int, float)) else None, utc=True)
+                    dt = pd.to_datetime(
+                        v,
+                        unit='s' if isinstance(v, (int, float)) else None,
+                        utc=True
+                    )
                     if pd.notna(dt):
                         # Guardar con sufijo _dt para diferenciar del raw
                         new_key = f"{k}_dt" if "_dt" not in k else k
@@ -67,7 +103,11 @@ class DataTransformer:
                     pass
         return new_row
 
-    def _rename_and_filter(self, df: pd.DataFrame, columns_config: dict) -> pd.DataFrame:
+    def _rename_and_filter(
+        self,
+        df: pd.DataFrame,
+        columns_config: dict
+    ) -> pd.DataFrame:
         """Renombra columnas usando el YAML y descarta las que no estén configuradas."""
         if df.empty: return df
         
@@ -77,6 +117,6 @@ class DataTransformer:
         # Renombrar
         df = df.rename(columns=rename_map)
         
-        # Filtrar: Quedarse solo con las columnas que existen en el config y en el DF
+        # el filtro, quedarse solo con las columnas que existen en el config y en el DF
         valid_cols = [c for c in rename_map.values() if c in df.columns]
         return df[valid_cols]
