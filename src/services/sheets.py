@@ -194,7 +194,7 @@ class SheetsService:
             return
 
         df_history = df.copy()
-        df_history.insert(0, "Fecha Extracción", time_chile)
+        #df_history.insert(0, "Fecha Extracción", time_chile)
 
         ws: gspread.Worksheet = self._get_or_create_worksheet(hist_tab_name)
 

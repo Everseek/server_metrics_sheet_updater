@@ -8,7 +8,8 @@ class DataTransformer:
 
     def process_data(
         self,
-        raw_docs: List[tuple]
+        raw_docs: List[tuple],
+        timestamp_str: str # <--- NUEVO PARAMETRO
     ) -> Dict[str, pd.DataFrame]:
         """
         Coordina la transformación de Servidores y Cámaras.
@@ -19,6 +20,8 @@ class DataTransformer:
         for doc_id, data in raw_docs:
             # Procesa Servidor
             server_row = self._flatten_server(doc_id, data)
+            # Inyectamos la fecha de consulta para que sea una columna
+            server_row["query_timestamp"] = timestamp_str 
             servers_rows.append(server_row)
 
             # Procesa Cámaras
@@ -30,13 +33,15 @@ class DataTransformer:
                             cam_name,
                             cam_data
                         )
+                        # Inyectamos la fecha de consulta a la cámara también
+                        cam_row["query_timestamp"] = timestamp_str
                         cameras_rows.append(cam_row)
 
         # Crea los DataFrames
         df_servers = pd.DataFrame(servers_rows)
         df_cameras = pd.DataFrame(cameras_rows)
 
-        # Aplica Renombrado según el YAML
+        # Aplica Renombrado y ORDENAMIENTO según el YAML
         df_servers = self._rename_and_filter(
             df_servers,
             config.servers_config["columns"]
@@ -114,9 +119,12 @@ class DataTransformer:
         # Mapeo { Nombre_Viejo: Nombre_Nuevo }
         rename_map = {k: v["name"] for k, v in columns_config.items()}
         
-        # Renombrar
+        # Renombrar las columnas que existan
         df = df.rename(columns=rename_map)
         
-        # el filtro, quedarse solo con las columnas que existen en el config y en el DF
-        valid_cols = [c for c in rename_map.values() if c in df.columns]
-        return df[valid_cols]
+        # El filtro hace dos cosas:
+        # 1. Elimina columnas que no estén en el config (como 'epoch')
+        # 2. ORDENA las columnas tal cual aparecen en el YAML
+        final_cols = [v["name"] for k, v in columns_config.items() if v["name"] in df.columns]
+        
+        return df[final_cols]

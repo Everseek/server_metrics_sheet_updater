@@ -35,7 +35,8 @@ def run_pipeline():
         # Transformación de los datitos
         logger.info("Transformando datos...")
         transformer = DataTransformer()
-        datasets = transformer.process_data(raw_docs)
+        datasets = transformer.process_data(raw_docs, str_chile)
+        #datasets = transformer.process_data(raw_docs)
 
         # Carga a google shit
         logger.info("Conectando a Google Sheets...")
