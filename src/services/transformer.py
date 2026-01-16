@@ -8,8 +8,7 @@ class DataTransformer:
 
     def process_data(
         self,
-        raw_docs: List[tuple],
-        timestamp_str: str # <--- NUEVO PARAMETRO
+        raw_docs: List[tuple]
     ) -> Dict[str, pd.DataFrame]:
         """
         Coordina la transformación de Servidores y Cámaras.
@@ -18,13 +17,17 @@ class DataTransformer:
         cameras_rows = []
 
         for doc_id, data in raw_docs:
-            # Procesa Servidor
+            # 1. Procesar Servidor
+            # _flatten_server capturará 'timestamp_query' automáticamente
+            # y _fix_timestamps lo convertirá a 'timestamp_query_dt'
             server_row = self._flatten_server(doc_id, data)
-            # Inyectamos la fecha de consulta para que sea una columna
-            server_row["query_timestamp"] = timestamp_str 
             servers_rows.append(server_row)
 
-            # Procesa Cámaras
+            # Capturamos el timestamp del servidor para pasarlo a las cámaras
+            # Si no existe, usamos None
+            server_query_time = server_row.get("timestamp_query_dt")
+
+            # 2. Procesar Cámaras
             if "cameras_status" in data and isinstance(data["cameras_status"], dict):
                 for cam_name, cam_data in data["cameras_status"].items():
                     if isinstance(cam_data, dict):
@@ -33,8 +36,10 @@ class DataTransformer:
                             cam_name,
                             cam_data
                         )
-                        # Inyectamos la fecha de consulta a la cámara también
-                        cam_row["query_timestamp"] = timestamp_str
+                        # HERENCIA: Asignamos el timestamp del servidor a la cámara
+                        if server_query_time is not None:
+                            cam_row["timestamp_query_dt"] = server_query_time
+                        
                         cameras_rows.append(cam_row)
 
         # Crea los DataFrames
@@ -68,6 +73,8 @@ class DataTransformer:
                     row[f"server_stats_{sk}"] = sv
             else:
                 row[k] = v
+        
+        # Aquí se procesará 'timestamp_query' -> 'timestamp_query_dt'
         return self._fix_timestamps(row)
 
     def _flatten_camera(
@@ -89,20 +96,27 @@ class DataTransformer:
     ) -> dict:
         """
         Busca campos timestamp, los convierte a datetime y ajusta la
-        zona horaria.
+        zona horaria. Detecta strings y números.
         """
         new_row = row.copy()
         for k, v in row.items():
+            # Detectamos cualquier key que tenga "timestamp" o "utc"
             if "timestamp" in k.lower() or "utc" in k.lower():
                 try:
+                    # Convertimos a datetime. 'coerce' maneja errores suavemente.
                     dt = pd.to_datetime(
                         v,
                         unit='s' if isinstance(v, (int, float)) else None,
-                        utc=True
+                        utc=True,
+                        errors='coerce' 
                     )
+                    
                     if pd.notna(dt):
                         # Guardar con sufijo _dt para diferenciar del raw
                         new_key = f"{k}_dt" if "_dt" not in k else k
+                        
+                        # Convertir a zona horaria local y quitar info de zona (naive)
+                        # para que Excel/Sheets no se confundan
                         new_row[new_key] = dt.tz_convert(self.tz).tz_localize(None)
                 except:
                     pass
@@ -116,15 +130,10 @@ class DataTransformer:
         """Renombra columnas usando el YAML y descarta las que no estén configuradas."""
         if df.empty: return df
         
-        # Mapeo { Nombre_Viejo: Nombre_Nuevo }
         rename_map = {k: v["name"] for k, v in columns_config.items()}
-        
-        # Renombrar las columnas que existan
         df = df.rename(columns=rename_map)
         
-        # El filtro hace dos cosas:
-        # 1. Elimina columnas que no estén en el config (como 'epoch')
-        # 2. ORDENA las columnas tal cual aparecen en el YAML
+        # Filtra y ordena según el YAML
         final_cols = [v["name"] for k, v in columns_config.items() if v["name"] in df.columns]
         
         return df[final_cols]
