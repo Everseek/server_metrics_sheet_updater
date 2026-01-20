@@ -10,7 +10,12 @@ class FirestoreService:
         self.client = firestore.client()
 
     def get_documents(self, limit=None):
-        """Generador que entrega (id, data_dict)"""
+        """
+        Generador que entrega (id, data_dict).
+
+        :param limit: Número máximo de documentos a obtener.
+        :yield: Tuplas de (id del documento, diccionario de datos).
+        """
         ref = self.client.collection(config.collection_name)
         stream = ref.limit(limit).stream() if limit else ref.stream()
         

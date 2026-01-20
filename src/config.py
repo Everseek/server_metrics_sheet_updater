@@ -7,10 +7,13 @@ load_dotenv()
 
 class Config:
     def __init__(self):
+        """
+        Carga configuración desde config.yaml y variables de entorno.
+        """
         yaml_path = Path("config.yaml")
         if not yaml_path.exists():
             raise FileNotFoundError("Falta el archivo config.yaml en la raíz")
-        
+
         with open(yaml_path, "r", encoding="utf-8") as f:
             self._yaml = yaml.safe_load(f)
 

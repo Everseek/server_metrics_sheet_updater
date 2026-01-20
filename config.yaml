@@ -75,28 +75,28 @@ sheets:
           operator: ">"
           value: 80
 
-      # 11. Boot Sistema
+      # 11. RX
+      "server_stats_network_speed_recieve_kbps": 
+        name: "RX (kbps)"
+        format: "NUMBER"
+
+      # 12. TX
+      "server_stats_network_speed_send_kbps": 
+        name: "TX (kbps)"
+        format: "NUMBER"
+
+      # 13. Boot Sistema
       "server_stats_timestamp_boot": 
         name: "Boot Sistema (Chile)"
         format: "DATE_TIME"
 
-      # 12. Uptime
+      # 14. Uptime
       "server_stats_uptime_days": 
         name: "Uptime (días)"
         format: "INTEGER"
         threshold:
           operator: ">"
           value: 15
-
-      # 13. RX
-      "server_stats_network_speed_recieve_kbps": 
-        name: "RX (kbps)"
-        format: "NUMBER"
-
-      # 14. TX
-      "server_stats_network_speed_send_kbps": 
-        name: "TX (kbps)"
-        format: "NUMBER"
 
       # 15. Fecha consulta (ESTA ES LA CORRECTA DE LA BD)
       "timestamp_query_dt": 

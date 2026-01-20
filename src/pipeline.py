@@ -6,10 +6,17 @@ from src.services.firestore import FirestoreService
 from src.services.transformer import DataTransformer
 from src.services.sheets import SheetsService
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s"
+)
 logger = logging.getLogger(__name__)
 
 def run_pipeline():
+    """
+    Ejecuta el pipeline ETL completo: Extracción desde Firestore,
+    Transformación de datos, y Carga a Google Sheets.
+    """
     logger.info(">>> Iniciando Pipeline ETL")
 
     try:
@@ -27,7 +34,7 @@ def run_pipeline():
         logger.info("Conectando a Firestore...")
         firestore = FirestoreService()
         raw_docs = list(firestore.get_documents())
-        
+
         if not raw_docs:
             logger.warning("No hay datos. Finalizando.")
             return
@@ -43,19 +50,43 @@ def run_pipeline():
 
         # region SERVIDORES
         logger.info("Procesando Servidores...")
+
         # Actualiza hoja principal
-        sheets.update_snapshot(config.servers_config, datasets["servers"], str_chile, str_utc)
+        sheets.update_snapshot(
+            config.servers_config,
+            datasets["servers"],
+            str_chile,
+            str_utc
+        )
+
         # Guarda en Historial
-        sheets.append_history(config.servers_config, datasets["servers"], str_chile)
+        sheets.append_history(
+            config.servers_config,
+            datasets["servers"],
+            str_chile
+        )
 
         # region CÁMARAS
         logger.info("Procesando Cámaras...")
+
         # Actualizaa hoja principal
-        sheets.update_snapshot(config.cameras_config, datasets["cameras"], str_chile, str_utc)
+        sheets.update_snapshot(
+            config.cameras_config,
+            datasets["cameras"],
+            str_chile,
+            str_utc
+        )
+
         # Guarda en Historial
-        sheets.append_history(config.cameras_config, datasets["cameras"], str_chile)
+        sheets.append_history(
+            config.cameras_config,
+            datasets["cameras"],
+            str_chile
+        )
 
         logger.info("<<< Pipeline finalizado con éxito.")
-
     except Exception as e:
-        logger.error(f"Error fatal en el pipeline: {e}", exc_info=True)
+        logger.error(
+            f"Error fatal en el pipeline: {e}",
+            exc_info=True
+        )

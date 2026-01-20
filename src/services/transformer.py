@@ -12,6 +12,9 @@ class DataTransformer:
     ) -> Dict[str, pd.DataFrame]:
         """
         Coordina la transformación de Servidores y Cámaras.
+
+        :param raw_docs: Lista de tuplas (id, data_dict) desde Firestore.
+        :return: Diccionario con DataFrames para 'servers' y 'cameras'.
         """
         servers_rows = []
         cameras_rows = []
@@ -63,7 +66,13 @@ class DataTransformer:
         doc_id: str,
         data: dict
     ) -> dict:
-        """Aplana la estructura anidada de Firestore."""
+        """
+        Aplana la estructura anidada de Firestore.
+
+        :param doc_id: ID del documento (nombre del servidor).
+        :param data: Diccionario de datos del servidor.
+        :return: Diccionario aplanado.
+        """
         row = {"Server Name": doc_id}
         for k, v in data.items():
             if k == "cameras_status": continue
@@ -74,7 +83,7 @@ class DataTransformer:
             else:
                 row[k] = v
         
-        # Aquí se procesará 'timestamp_query' -> 'timestamp_query_dt'
+        # Aquí se procesa 'timestamp_query' --> 'timestamp_query_dt'
         return self._fix_timestamps(row)
 
     def _flatten_camera(
@@ -83,6 +92,14 @@ class DataTransformer:
         cam_name: str,
         data: dict
     ) -> dict:
+        """
+        Aplana la estructura anidada de una cámara.
+
+        :param server_id: ID del servidor al que pertenece la cámara.
+        :param cam_name: Nombre de la cámara.
+        :param data: Diccionario de datos de la cámara.
+        :return: Diccionario aplanado.
+        """
         row = {
             "Server Name": server_id,
             "camera_name": cam_name
@@ -97,24 +114,27 @@ class DataTransformer:
         """
         Busca campos timestamp, los convierte a datetime y ajusta la
         zona horaria. Detecta strings y números.
+
+        :param row: Diccionario de datos.
+        :return: Diccionario con datos normalizados.
         """
         new_row = row.copy()
         for k, v in row.items():
             # Detectamos cualquier key que tenga "timestamp" o "utc"
             if "timestamp" in k.lower() or "utc" in k.lower():
                 try:
-                    # Convertimos a datetime. 'coerce' maneja errores suavemente.
+                    # Convierte a datetime. 'coerce' maneja errores suavemente.
                     dt = pd.to_datetime(
                         v,
                         unit='s' if isinstance(v, (int, float)) else None,
                         utc=True,
                         errors='coerce' 
                     )
-                    
+
                     if pd.notna(dt):
                         # Guardar con sufijo _dt para diferenciar del raw
                         new_key = f"{k}_dt" if "_dt" not in k else k
-                        
+
                         # Convertir a zona horaria local y quitar info de zona (naive)
                         # para que Excel/Sheets no se confundan
                         new_row[new_key] = dt.tz_convert(self.tz).tz_localize(None)
@@ -127,13 +147,20 @@ class DataTransformer:
         df: pd.DataFrame,
         columns_config: dict
     ) -> pd.DataFrame:
-        """Renombra columnas usando el YAML y descarta las que no estén configuradas."""
+        """
+        Renombra columnas usando el YAML y descarta las que no estén
+        configuradas.
+
+        :param df: DataFrame original.
+        :param columns_config: Configuración de columnas desde el YAML.
+        :return: DataFrame renombrado y filtrado.
+        """
         if df.empty: return df
-        
+
         rename_map = {k: v["name"] for k, v in columns_config.items()}
         df = df.rename(columns=rename_map)
-        
+
         # Filtra y ordena según el YAML
         final_cols = [v["name"] for k, v in columns_config.items() if v["name"] in df.columns]
-        
+
         return df[final_cols]
